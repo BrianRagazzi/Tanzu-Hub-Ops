@@ -1,0 +1,48 @@
+#@ load("@ytt:overlay", "overlay")
+#! Overlay to remove resource.requests from all containers and initContainers in Deployments, StatefulSets, and Pods
+
+#@overlay/match by=overlay.subset({"kind":"Deployment"})
+---
+spec:
+  template:
+    spec:
+      containers?:
+        #@overlay/match by=overlay.all
+        #@overlay/remove
+        resources?:
+          requests?:
+      initContainers?:
+        #@overlay/match by=overlay.all
+        #@overlay/remove
+        resources?:
+          requests?:
+
+            #@overlay/match by=overlay.subset({"kind":"StatefulSet"})
+---
+spec:
+  template:
+    spec:
+      containers?:
+        #@overlay/match by=overlay.all
+        #@overlay/remove
+        resources?:
+          requests?:
+      initContainers?:
+        #@overlay/match by=overlay.all
+        #@overlay/remove
+        resources?:
+          requests?:
+
+            #@overlay/match by=overlay.subset({"kind":"Pod"})
+---
+spec:
+  containers?:
+    #@overlay/match by=overlay.all
+    #@overlay/remove
+    resources?:
+      requests?:
+  initContainers?:
+    #@overlay/match by=overlay.all
+    #@overlay/remove
+    resources?:
+      requests?:
