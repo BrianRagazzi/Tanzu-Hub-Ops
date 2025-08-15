@@ -119,47 +119,22 @@ main() {
     echo "PackageInstall '$package_install_name' found"
     echo ""
     
-    # Create temporary directory for processing
-    local temp_dir=$(mktemp -d)
-    trap "rm -rf $temp_dir" EXIT
-    
+    # Use script directory for processing
+    local temp_dir="$script_dir"
     echo "Processing PackageInstall..."
-    
     # Get current PackageInstall spec
     local current_spec_file="$temp_dir/current-spec.yaml"
     kubectl get packageinstall "$package_install_name" $namespace_flag -o yaml > "$current_spec_file"
-    
-    # Extract the values from the PackageInstall if they exist
-    local values_file="$temp_dir/values.yaml"
-    kubectl get packageinstall "$package_install_name" $namespace_flag -o jsonpath='{.spec.values}' > "$values_file" 2>/dev/null || echo "{}" > "$values_file"
-    
-    # Get the package reference to understand what we're working with
-    local package_ref=$(kubectl get packageinstall "$package_install_name" $namespace_flag -o jsonpath='{.spec.packageRef.refName}')
-    echo "Package reference: $package_ref"
-    
-    # Create overlay configuration for the PackageInstall
-    local overlay_config_file="$temp_dir/overlay-config.yaml"
-    cat > "$overlay_config_file" << EOF
-apiVersion: packaging.carvel.dev/v1alpha1
-kind: PackageInstall
-metadata:
-  name: $package_install_name
-spec:
-  packageRef:
-    refName: $package_ref
-  values:
-$(cat "$values_file" | sed 's/^/    /')
-  overlays:
-  - name: remove-resource-requests
-    overlay: |
-$(cat "$overlay_file" | sed 's/^/      /')
-EOF
-    
+
+    # Use ytt to apply the overlay to the current spec
+    local updated_spec_file="$temp_dir/updated-spec.yaml"
+    ytt -f "$current_spec_file" -f "$overlay_file" > "$updated_spec_file"
+
     echo "Applying overlay to remove resource requests..."
-    
-    # Apply the updated PackageInstall with overlay
-    kubectl apply -f "$overlay_config_file" $namespace_flag
-    
+
+    # Apply the updated PackageInstall manifest
+    kubectl apply -f "$updated_spec_file" $namespace_flag
+
     echo ""
     echo "Successfully applied resource requests removal overlay to PackageInstall '$package_install_name'"
     echo ""
